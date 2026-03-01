@@ -8,7 +8,8 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: Setup JDK 17
       uses: actions/setup-java@v3
@@ -16,20 +17,30 @@ jobs:
         distribution: temurin
         java-version: 17
 
-    - name: Setup Android NDK
+    - name: Setup Android NDK r25b
       uses: nttld/setup-ndk@v1.0.6
       with:
         ndk-version: r25b
+        add-to-path: true
 
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: 3.9
 
-    - name: Install dependencies
+    - name: Install build dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install build-essential ninja-build flex bison python3-pip -y
+        sudo apt-get install -y \
+          build-essential \
+          ninja-build \
+          flex \
+          bison \
+          python3-pip \
+          libglib2.0-dev \
+          libc6-dev-i386 \
+          g++-multilib
+
         python3 -m pip install lief
 
     - name: Clone Frida
@@ -38,12 +49,19 @@ jobs:
 
     - name: Build Android arm64
       run: |
+        export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
+        export ANDROID_NDK=$ANDROID_NDK_HOME
+        export PATH=$ANDROID_NDK_HOME:$PATH
+
+        echo "Using NDK at: $ANDROID_NDK_HOME"
+        ls $ANDROID_NDK_HOME
+
         cd frida
         ./configure --host=android-arm64
-        make
+        make -j$(nproc)
 
-    - name: Upload Artifact
+    - name: Upload frida-server artifact
       uses: actions/upload-artifact@v4
       with:
-        name: frida-android-arm64
+        name: frida-server-android-arm64
         path: frida/build/subprojects/frida-core/server/frida-server
